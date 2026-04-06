@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   blocks: [],
@@ -7,50 +7,70 @@ const initialState = {
   shelves: [],
   stock: [],
   medicines: [],
-  bills: [],
+  salesBills: [],
+  purchaseBills: [],
   suppliers: [],
-}
+  staff: [],
+  selectedBill: null,
+  selectedBillId: null,
+};
 
 const inventorySlice = createSlice({
-  name: 'inventory',
+  name: "inventory",
   initialState,
   reducers: {
     setBlocks(state, action) {
-      state.blocks = action.payload
+      state.blocks = action.payload;
     },
     setUnassigned(state, action) {
-      state.unassigned = action.payload
+      state.unassigned = action.payload;
     },
     setSelectedBlock(state, action) {
-      state.selectedBlock = action.payload
+      state.selectedBlock = action.payload;
     },
     setShelves(state, action) {
-      state.shelves = action.payload
+      state.shelves = action.payload;
     },
     setStock(state, action) {
-      state.stock = action.payload
+      state.stock = action.payload;
     },
     setMedicines(state, action) {
-      state.medicines = action.payload
+      state.medicines = action.payload;
     },
-    setBills(state, action) {
-      state.bills = action.payload
+    setSalesBills(state, action) {
+      state.salesBills = action.payload;
+    },
+    setPurchaseBills(state, action) {
+      state.purchaseBills = action.payload;
     },
     setSuppliers(state, action) {
-      state.suppliers = action.payload
+      state.suppliers = action.payload;
+    },
+    setStaff(state, action) {
+      state.staff = action.payload;
+    },
+    setSelectedBill(state, action) {
+      state.selectedBill = action.payload;
+    },
+    setSelectedBillId(state, action) {
+      state.selectedBillId = action.payload;
     },
     clearInventory(state) {
-      state.blocks = []
-      state.unassigned = []
-      state.selectedBlock = null
-      state.shelves = []
-      state.stock = []
-      state.medicines = []
-      state.bills = []
-      state.suppliers = []
+      state.blocks = [];
+      state.unassigned = [];
+      state.selectedBlock = null;
+      state.shelves = [];
+      state.stock = [];
+      state.medicines = [];
+      state.salesBills = [];
+      state.purchaseBills = [];
+      state.suppliers = [];
+      state.staff = [];
+      state.selectedBill = null;
+      state.selectedBillId = null;
     },
   },
-})
+});
 
 export const {
   setBlocks,
@@ -59,8 +79,12 @@ export const {
   setShelves,
   setStock,
   setMedicines,
-  setBills,
+  setSalesBills,
+  setPurchaseBills,
   setSuppliers,
+  setStaff,
+  setSelectedBill,
+  setSelectedBillId,
   clearInventory,
-} = inventorySlice.actions
-export default inventorySlice.reducer
+} = inventorySlice.actions;
+export default inventorySlice.reducer;

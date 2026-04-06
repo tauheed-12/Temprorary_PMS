@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { setSuppliers } from "../store/slices/inventorySlice";
 import { getSuppliers } from "../api/inventory";
 import useWindowSize from "../hooks/useWindowSize";
 import SupplierForm from "../components/Suppliers/SupplierForm";
@@ -6,22 +8,33 @@ import SupplierList from "../components/Suppliers/SupplierList";
 
 export default function Suppliers() {
   const { isMobile } = useWindowSize();
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const suppliers = useAppSelector((state) => state.inventory.suppliers);
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState("");
 
-  const fetchSuppliers = () => {
-    setLoading(true);
-    getSuppliers()
-      .then((res) => setSuppliers(res.data.results || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    fetchSuppliers();
-  }, []);
+    if (suppliers.length === 0) {
+      getSuppliers()
+        .then((res) => dispatch(setSuppliers(res.data.results || [])))
+        .catch(console.error);
+    }
+  }, [suppliers.length, dispatch]);
+
+  // Show loading if no suppliers data yet
+  if (suppliers.length === 0)
+    return (
+      <div
+        style={{
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          padding: "2rem",
+        }}
+      >
+        LOADING SUPPLIERS DATA...
+      </div>
+    );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -51,14 +64,16 @@ export default function Suppliers() {
               fontSize: "11px",
               color: "var(--text-muted)",
               fontFamily: "var(--font-mono)",
+              marginTop: "2px",
             }}
           >
-            {suppliers.length} ACTIVE SUPPLIERS
+            {suppliers.length} TOTAL SUPPLIERS
           </p>
         </div>
         <button
           onClick={() => {
             setShowForm(!showForm);
+            setSuccess("");
           }}
           style={{
             background: showForm ? "transparent" : "var(--accent-green)",
@@ -77,7 +92,6 @@ export default function Suppliers() {
         </button>
       </div>
 
-      {/* Success message */}
       {success && (
         <div
           style={{
@@ -94,11 +108,10 @@ export default function Suppliers() {
         </div>
       )}
 
-      {/* Add supplier form */}
       {showForm && (
         <SupplierForm
           onSuccess={(newSupplier) => {
-            setSuppliers((prev) => [newSupplier, ...prev]);
+            dispatch(setSuppliers([newSupplier, ...suppliers]));
             setSuccess("Supplier added successfully.");
             setShowForm(false);
             setTimeout(() => setSuccess(""), 3000);
@@ -107,8 +120,7 @@ export default function Suppliers() {
         />
       )}
 
-      {/* Suppliers list */}
-      <SupplierList suppliers={suppliers} loading={loading} />
+      <SupplierList suppliers={suppliers} />
     </div>
   );
 }

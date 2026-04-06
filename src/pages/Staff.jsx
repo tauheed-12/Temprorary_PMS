@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { setStaff } from "../store/slices/inventorySlice";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/config";
 import useWindowSize from "../hooks/useWindowSize";
@@ -16,24 +18,33 @@ const LEVEL_LABEL = {
 export default function Staff() {
   const { user } = useAuth();
   const { isMobile } = useWindowSize();
-
-  const [staff, setStaff] = useState([]);
+  const dispatch = useAppDispatch();
+  const staff = useAppSelector((state) => state.inventory.staff);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState("");
 
-  const fetchStaff = () => {
-    setLoading(true);
+  useEffect(() => {
     api
       .get("/api/accounts/staff/")
-      .then((res) => setStaff(res.data.results || res.data || []))
+      .then((res) => dispatch(setStaff(res.data.results || res.data || [])))
       .catch(console.error)
       .finally(() => setLoading(false));
-  };
+  }, [dispatch]);
 
-  useEffect(() => {
-    fetchStaff();
-  }, []);
+  if (loading)
+    return (
+      <div
+        style={{
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          padding: "2rem",
+        }}
+      >
+        LOADING STAFF DATA...
+      </div>
+    );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -66,33 +77,33 @@ export default function Staff() {
               marginTop: "2px",
             }}
           >
-            {staff.length} {staff.length === 1 ? "MEMBER" : "MEMBERS"} ·{" "}
-            {user?.pharmacy?.name || "Your Pharmacy"}
+            {staff.length} TOTAL STAFF MEMBERS
           </p>
         </div>
-        <button
-          onClick={() => {
-            setShowForm(!showForm);
-          }}
-          style={{
-            background: showForm ? "transparent" : "var(--accent-green)",
-            color: showForm ? "var(--text-secondary)" : "#000",
-            border: showForm ? "1px solid var(--border)" : "none",
-            borderRadius: "var(--radius-sm)",
-            padding: "8px 16px",
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            fontWeight: "700",
-            letterSpacing: "0.08em",
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-        >
-          {showForm ? "CANCEL" : "+ ADD STAFF"}
-        </button>
+        {user?.privilege_level >= 2 && (
+          <button
+            onClick={() => {
+              setShowForm(!showForm);
+              setSuccess("");
+            }}
+            style={{
+              background: showForm ? "transparent" : "var(--accent-green)",
+              color: showForm ? "var(--text-secondary)" : "#000",
+              border: showForm ? "1px solid var(--border)" : "none",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 16px",
+              fontFamily: "var(--font-mono)",
+              fontSize: "11px",
+              fontWeight: "700",
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+            }}
+          >
+            {showForm ? "CANCEL" : "+ ADD STAFF"}
+          </button>
+        )}
       </div>
 
-      {/* ── Success banner ── */}
       {success && (
         <div
           style={{
@@ -103,37 +114,28 @@ export default function Staff() {
             fontSize: "12px",
             color: "var(--accent-green)",
             fontFamily: "var(--font-mono)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
           }}
         >
-          <span>✓</span>
-          <span>{success}</span>
+          ✓ {success}
         </div>
       )}
 
-      {/* ── Create staff form ── */}
       {showForm && (
         <StaffForm
           onSuccess={(newStaff) => {
-            setStaff((prev) => [newStaff, ...prev]);
-            setSuccess(
-              `${LEVEL_LABEL[newStaff.privilege_level]} account created for ${newStaff.name || newStaff.phone_number}.`,
-            );
+            dispatch(setStaff([newStaff, ...staff]));
+            setSuccess("Staff member added successfully.");
             setShowForm(false);
-            setTimeout(() => setSuccess(""), 4000);
+            setTimeout(() => setSuccess(""), 3000);
           }}
           onCancel={() => setShowForm(false)}
         />
       )}
 
-      {/* ── Staff list ── */}
       <StaffList
         staff={staff}
-        loading={loading}
-        user={user}
-        isMobile={isMobile}
+        userLevel={user?.privilege_level || 1}
+        levelLabels={LEVEL_LABEL}
       />
     </div>
   );

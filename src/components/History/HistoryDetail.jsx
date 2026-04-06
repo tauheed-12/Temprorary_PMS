@@ -2,9 +2,24 @@ export default function HistoryDetail({
   selectedBill,
   detailLoading,
   isMobile,
-  onItemReturn,
+  onReturn,
   getPaymentColor,
 }) {
+  if (detailLoading) {
+    return (
+      <div
+        style={{
+          padding: "2rem",
+          color: "var(--text-muted)",
+          fontFamily: "var(--font-mono)",
+          fontSize: "12px",
+        }}
+      >
+        LOADING...
+      </div>
+    );
+  }
+
   if (!selectedBill) {
     return (
       <div
@@ -22,21 +37,6 @@ export default function HistoryDetail({
         }}
       >
         SELECT A BILL
-      </div>
-    );
-  }
-
-  if (detailLoading) {
-    return (
-      <div
-        style={{
-          padding: "2rem",
-          color: "var(--text-muted)",
-          fontFamily: "var(--font-mono)",
-          fontSize: "12px",
-        }}
-      >
-        LOADING...
       </div>
     );
   }
@@ -165,7 +165,7 @@ export default function HistoryDetail({
                 ₹{parseFloat(item.line_total).toFixed(2)}
               </div>
               <button
-                onClick={() => onItemReturn(item)}
+                onClick={() => onReturn(item)}
                 style={{
                   fontSize: "9px",
                   color: "var(--accent-amber)",

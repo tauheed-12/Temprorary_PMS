@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { setStock, setSalesBills } from "../store/slices/inventorySlice";
 import { useAuth } from "../context/AuthContext";
 import { getStock } from "../api/inventory";
 import { getSalesHistory } from "../api/billing";
@@ -22,21 +24,83 @@ import ExpiryAlert from "../components/Dashboard/ExpiryAlert";
 export default function Dashboard() {
   const { user } = useAuth();
   const { isMobile, isTablet } = useWindowSize();
-  const [stock, setStock] = useState([]);
-  const [bills, setBills] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const stock = useAppSelector((state) => state.inventory.stock);
+  const bills = useAppSelector((state) => state.inventory.salesBills);
 
   useEffect(() => {
-    Promise.all([getStock(), getSalesHistory()])
-      .then(([stockRes, billsRes]) => {
-        setStock(stockRes.data.results || []);
-        setBills(billsRes.data.results || []);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+    // Fetch data if not already loaded
+    if (stock.length === 0 || bills.length === 0) {
+      Promise.all([getStock(), getSalesHistory()])
+        .then(([stockRes, billsRes]) => {
+          dispatch(setStock(stockRes.data.results || []));
+          dispatch(setSalesBills(billsRes.data.results || []));
+        })
+        .catch(console.error);
+    }
+  }, [stock.length, bills.length, dispatch]);
 
-  if (loading)
+  // ── Computed metrics ──
+  const totalStock = useMemo(
+    () => stock.reduce((sum, b) => sum + b.available_quantity, 0),
+    [stock],
+  );
+
+  const expiryAlerts = useMemo(
+    () =>
+      stock.filter((b) => {
+        const days = Math.ceil(
+          (new Date(b.expiry_date) - new Date()) / (1000 * 60 * 60 * 24),
+        );
+        return days <= 30;
+      }),
+    [stock],
+  );
+
+  const todayBills = useMemo(
+    () =>
+      bills.filter((b) =>
+        b.bill_date?.startsWith(new Date().toISOString().slice(0, 10)),
+      ),
+    [bills],
+  );
+
+  const todayRevenue = useMemo(
+    () => todayBills.reduce((sum, b) => sum + parseFloat(b.grand_total), 0),
+    [todayBills],
+  );
+
+  const totalRevenue = useMemo(
+    () => bills.reduce((sum, b) => sum + parseFloat(b.grand_total), 0),
+    [bills],
+  );
+
+  // ── Chart data — last 7 bills grouped by date ──
+  const chartData = useMemo(() => {
+    const map = {};
+    bills.slice(0, 30).forEach((b) => {
+      const date = b.bill_date?.slice(5, 10);
+      if (!map[date]) map[date] = { date, revenue: 0, bills: 0 };
+      map[date].revenue += parseFloat(b.grand_total);
+      map[date].bills += 1;
+    });
+    return Object.values(map).slice(-7).reverse();
+  }, [bills]);
+
+  const isLoading = stock.length === 0 && bills.length === 0;
+
+  // ── Expiry urgency ──
+  // Note: getExpiryColor is not used in this component, expiry colors are handled in ExpiryAlert component
+
+  const metricsGrid = isMobile
+    ? "1fr 1fr"
+    : isTablet
+      ? "1fr 1fr"
+      : "repeat(4, 1fr)";
+  const mainGrid = isMobile || isTablet ? "1fr" : "3fr 2fr";
+  const bottomGrid = isMobile || isTablet ? "1fr" : "1fr 1fr";
+
+  if (isLoading)
     return (
       <div
         style={{
@@ -49,56 +113,6 @@ export default function Dashboard() {
         LOADING DATA...
       </div>
     );
-
-  // ── Computed metrics ──
-  const totalStock = stock.reduce((sum, b) => sum + b.available_quantity, 0);
-  const expiryAlerts = stock.filter((b) => {
-    const days = Math.ceil(
-      (new Date(b.expiry_date) - new Date()) / (1000 * 60 * 60 * 24),
-    );
-    return days <= 30;
-  });
-  const todayBills = bills.filter((b) =>
-    b.bill_date?.startsWith(new Date().toISOString().slice(0, 10)),
-  );
-  const todayRevenue = todayBills.reduce(
-    (sum, b) => sum + parseFloat(b.grand_total),
-    0,
-  );
-  const totalRevenue = bills.reduce(
-    (sum, b) => sum + parseFloat(b.grand_total),
-    0,
-  );
-
-  // ── Chart data — last 7 bills grouped by date ──
-  const chartData = (() => {
-    const map = {};
-    bills.slice(0, 30).forEach((b) => {
-      const date = b.bill_date?.slice(5, 10);
-      if (!map[date]) map[date] = { date, revenue: 0, bills: 0 };
-      map[date].revenue += parseFloat(b.grand_total);
-      map[date].bills += 1;
-    });
-    return Object.values(map).slice(-7).reverse();
-  })();
-
-  // ── Expiry urgency ──
-  const getExpiryColor = (expiry) => {
-    const days = Math.ceil(
-      (new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24),
-    );
-    if (days <= 7) return "var(--accent-red)";
-    if (days <= 15) return "var(--accent-amber)";
-    return "var(--text-secondary)";
-  };
-
-  const metricsGrid = isMobile
-    ? "1fr 1fr"
-    : isTablet
-      ? "1fr 1fr"
-      : "repeat(4, 1fr)";
-  const mainGrid = isMobile || isTablet ? "1fr" : "3fr 2fr";
-  const bottomGrid = isMobile || isTablet ? "1fr" : "1fr 1fr";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
