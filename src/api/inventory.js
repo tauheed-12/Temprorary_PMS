@@ -1,0 +1,17 @@
+import api from './config'
+
+export const getStock = () => api.get('/api/inventory/stock/')
+export const getBatchesForMedicine = (medicineId) => api.get(`/api/inventory/stock/?medicine=${medicineId}`)
+export const getSuppliers = () => api.get('/api/inventory/suppliers/')
+export const getMedicines = () => api.get('/api/inventory/medicines/?include_inactive=true')
+export const searchMedicines = (q) => api.get(`/api/inventory/search/?q=${q}`)
+export const searchMedicinesAll = (q) => api.get(`/api/inventory/search/?q=${q}&include_inactive=true`)
+export const reactivateMedicine = (id) => api.patch(`/api/inventory/medicines/${id}/`, { is_active: true })
+export const getPurchaseBills = () => api.get('/api/inventory/purchase/')
+export const createPurchaseBill = (data) => api.post('/api/inventory/purchase/', data)
+export const getBlocks = () => api.get('/api/inventory/blocks/')
+export const createBlock = (data) => api.post('/api/inventory/blocks/', data)
+export const getUnassignedBatches = () => api.get('/api/inventory/batches/unassigned/')
+export const assignBatch = (batchId, data) => api.post(`/api/inventory/batches/${batchId}/assign/`, data)
+export const getAdjustments = () => api.get('/api/inventory/adjustments/')
+export const deactivateMedicine = (id) => api.patch(`/api/inventory/medicines/${id}/`, { is_active: false })
