@@ -7,11 +7,14 @@ function SearchBar({ commitToCart }) {
   const [searchResults, setSearchResults] = useState([]);
   const [pendingAdd, setPendingAdd] = useState(null); // { med, batch } waiting for qty
   const [qtyValue, setQtyValue] = useState("1");
+  const [uomValue, setUomValue] = useState("Tabs");
   const [noStockMsg, setNoStockMsg] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
   const inputRef = useRef(null);
+  const uomInputRef = useRef(null);
   const qtyInputRef = useRef(null);
+  const addBtnRef = useRef(null);
   const noStockTimerRef = useRef(null);
   const debounceTimerRef = useRef(null);
   const autoAddRef = useRef(false);
@@ -22,7 +25,8 @@ function SearchBar({ commitToCart }) {
     setQuery("");
     setPendingAdd({ med, batch });
     setQtyValue("1");
-    setTimeout(() => qtyInputRef.current?.focus(), 30);
+    setUomValue("Tabs");
+    setTimeout(() => uomInputRef.current?.focus(), 30);
   }, []);
 
   const doSearch = useCallback(
@@ -133,10 +137,18 @@ function SearchBar({ commitToCart }) {
   return (
     <div ref={searchRef} style={{ position: "relative", flexShrink: 0 }}>
       <input
+        id="main-search-bar"
         ref={inputRef}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={handleSearchKeyDown}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && !searchOpen) {
+            e.preventDefault();
+            document.getElementById("cart-row-0")?.focus();
+          } else {
+            handleSearchKeyDown(e);
+          }
+        }}
         placeholder="Search by name, salt or scan barcode..."
         autoComplete="off"
         style={{ ...iStyle, fontSize: "14px", padding: "10px 14px" }}
@@ -174,8 +186,9 @@ function SearchBar({ commitToCart }) {
               marginBottom: "12px",
             }}
           >
-            Batch {pendingAdd.batch.batch_number} · MRP ₹{pendingAdd.batch.mrp}
-            /strip · {pendingAdd.batch.available_quantity} tabs available
+            Batch {pendingAdd.batch.batch_number} · MRP ₹{pendingAdd.batch.mrp}/strip
+            {" · "}Exp {pendingAdd.batch.expiry_date ? (() => { const p = pendingAdd.batch.expiry_date.split("-"); return `${p[1]}/${p[0]}`; })() : ""}
+            {" · "}{pendingAdd.batch.available_quantity} tabs in stock
           </div>
           <div
             style={{
@@ -200,30 +213,104 @@ function SearchBar({ commitToCart }) {
                   letterSpacing: "0.1em",
                 }}
               >
-                TABLETS
+                UOM
+              </label>
+              <select
+                ref={uomInputRef}
+                className="focus-ring-input"
+                value={uomValue}
+                onChange={(e) => setUomValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    qtyInputRef.current?.focus();
+                  }
+                  if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    addBtnRef.current?.focus();
+                  }
+                  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setUomValue((prev) => (prev === "Tabs" ? "Strips" : "Tabs"));
+                  }
+                  if (e.key === "Escape") {
+                    setPendingAdd(null);
+                    setQtyValue("1");
+                    setUomValue("Tabs");
+                    inputRef.current?.focus();
+                  }
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    qtyInputRef.current?.focus();
+                  }
+                }}
+                style={{
+                  height: "33.5px", // To identically align alongside the input
+                  background: "var(--bg-secondary)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "0 8px",
+                  color: "var(--text-primary)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "12px",
+                  outline: "none",
+                }}
+              >
+                <option value="Tabs">Tabs</option>
+                <option value="Strips">Strips</option>
+              </select>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "3px",
+              }}
+            >
+              <label
+                style={{
+                  fontSize: "9px",
+                  color: "var(--text-secondary)",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                QTY ({uomValue.toUpperCase()})
               </label>
               <input
                 ref={qtyInputRef}
+                className="focus-ring-input"
                 type="number"
-                min="1"
                 value={qtyValue}
                 onChange={(e) => setQtyValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    const qty = Math.max(1, parseInt(qtyValue) || 1);
-                    commitToCart(pendingAdd.med, pendingAdd.batch, qty);
+                    const parsedQty = parseInt(qtyValue);
+                    const qty = isNaN(parsedQty) ? 1 : parsedQty;
+                    commitToCart(pendingAdd.med, pendingAdd.batch, qty, uomValue);
+                    setPendingAdd(null);
+                    setQtyValue("1");
+                    setUomValue("Tabs");
+                    inputRef.current?.focus();
                   }
                   if (e.key === "Escape") {
                     setPendingAdd(null);
                     setQtyValue("1");
+                    setUomValue("Tabs");
                     inputRef.current?.focus();
+                  }
+                  if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    uomInputRef.current?.focus();
+                  }
+                  if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    addBtnRef.current?.focus();
                   }
                 }}
                 style={{
                   width: "64px",
                   background: "var(--bg-secondary)",
-                  border: "1px solid var(--accent-green)",
                   borderRadius: "var(--radius-sm)",
                   padding: "6px 8px",
                   color: "var(--text-primary)",
@@ -234,13 +321,29 @@ function SearchBar({ commitToCart }) {
               />
             </div>
             <button
-              onClick={() =>
+              ref={addBtnRef}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft") {
+                  e.preventDefault();
+                  qtyInputRef.current?.focus();
+                }
+                if (e.key === "ArrowRight") {
+                  e.preventDefault();
+                  uomInputRef.current?.focus();
+                }
+              }}
+              onClick={() => {
                 commitToCart(
                   pendingAdd.med,
                   pendingAdd.batch,
-                  Math.max(1, parseInt(qtyValue) || 1),
-                )
-              }
+                  isNaN(parseInt(qtyValue)) ? 1 : parseInt(qtyValue),
+                  uomValue
+                );
+                setPendingAdd(null);
+                setQtyValue("1");
+                setUomValue("Tabs");
+                inputRef.current?.focus();
+              }}
               style={{
                 marginTop: "14px",
                 background: "var(--accent-green)",
@@ -461,7 +564,7 @@ function SearchBar({ commitToCart }) {
                         color: "var(--text-muted)",
                       }}
                     >
-                      Exp: {batch.expiry_date}
+                      Exp: {batch.expiry_date ? (() => { const p = batch.expiry_date.split("-"); return `${p[1]}/${p[0]}`; })() : ""}
                     </span>
                   </div>
 
@@ -482,7 +585,7 @@ function SearchBar({ commitToCart }) {
                         color: "var(--text-muted)",
                       }}
                     >
-                      {batch.available_quantity} tabs left
+                      {batch.available_quantity} tabs in stock
                     </div>
                   </div>
                 </div>

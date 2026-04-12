@@ -6,11 +6,17 @@ function SaleSummary({
   paymentMode,
   setPaymentMode,
   paymentModeRefs,
+  splitPayments,
+  setSplitPayments,
   error,
   submitting,
   cart,
   handleCheckout,
 }) {
+  const splitSum = Object.values(splitPayments || {}).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+  const isSplitMismatch = paymentMode === "SPLIT" && Math.abs(splitSum - grandTotal) > 0.01;
+  const isSubmitDisabled = submitting || cart.length === 0 || isSplitMismatch;
+
   return (
     <div
       style={{
@@ -37,27 +43,34 @@ function SaleSummary({
       <div style={fWrap}>
         <label style={lStyle}>PAYMENT MODE</label>
         <div style={{ display: "flex", gap: "6px" }}>
-          {["CASH", "UPI", "CREDIT"].map((mode, idx) => (
+          {["CASH", "UPI", "CREDIT", "SPLIT"].map((mode, idx) => {
+            const isDisabled = grandTotal < 0 && mode === "SPLIT";
+            return (
             <button
               key={mode}
+              disabled={isDisabled}
               ref={(el) => (paymentModeRefs.current[idx] = el)}
-              onClick={() => setPaymentMode(mode)}
+              onClick={() => { if (!isDisabled) setPaymentMode(mode); }}
               onKeyDown={(e) => {
-                const modes = ["CASH", "UPI", "CREDIT"];
+                const modes = ["CASH", "UPI", "CREDIT", "SPLIT"];
                 if (e.key === "ArrowRight") {
                   e.preventDefault();
-                  const next = (idx + 1) % modes.length;
+                  let next = (idx + 1) % modes.length;
+                  if (grandTotal < 0 && modes[next] === "SPLIT") next = (next + 1) % modes.length;
                   setPaymentMode(modes[next]);
                   paymentModeRefs.current[next]?.focus();
                 }
                 if (e.key === "ArrowLeft") {
                   e.preventDefault();
-                  const prev = (idx - 1 + modes.length) % modes.length;
+                  let prev = (idx - 1 + modes.length) % modes.length;
+                  if (grandTotal < 0 && modes[prev] === "SPLIT") prev = (prev - 1 + modes.length) % modes.length;
                   setPaymentMode(modes[prev]);
                   paymentModeRefs.current[prev]?.focus();
                 }
               }}
               style={{
+                opacity: isDisabled ? 0.2 : 1,
+                cursor: isDisabled ? "not-allowed" : "pointer",
                 flex: 1,
                 padding: "7px 4px",
                 fontFamily: "var(--font-mono)",
@@ -75,15 +88,33 @@ function SaleSummary({
                   paymentMode === mode
                     ? "var(--accent-green)"
                     : "var(--text-secondary)",
-                cursor: "pointer",
+                cursor: isDisabled ? "not-allowed" : "pointer",
                 transition: "all 0.15s",
               }}
             >
               {mode}
             </button>
-          ))}
+          )})}
         </div>
       </div>
+
+      {paymentMode === "SPLIT" && (
+        <div style={{ display: "flex", gap: "8px", flexDirection: "row" }}>
+          {["CASH", "UPI", "CREDIT"].map((type) => (
+            <div key={type} style={fWrap}>
+              <label style={lStyle}>{type} ₹</label>
+              <input
+                type="number"
+                min="0"
+                value={splitPayments?.[type] || ""}
+                onChange={(e) => setSplitPayments(prev => ({ ...prev, [type]: e.target.value }))}
+                style={{ ...iStyle, padding: "6px 8px", fontSize: "11px" }}
+                placeholder="0"
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={fWrap}>
         <label style={lStyle}>DISCOUNT (₹)</label>
@@ -162,13 +193,26 @@ function SaleSummary({
         </p>
       )}
 
+      {isSplitMismatch && (
+        <p
+          style={{
+            color: "var(--accent-red)",
+            fontSize: "11px",
+            fontFamily: "var(--font-mono)",
+            lineHeight: "1.3",
+          }}
+        >
+          Split amounts must equal exactly ₹{grandTotal.toFixed(2)}
+        </p>
+      )}
+
       <button
         onClick={handleCheckout}
-        disabled={submitting || cart.length === 0}
+        disabled={isSubmitDisabled}
         style={{
           background:
-            cart.length === 0 ? "var(--bg-hover)" : "var(--accent-green)",
-          color: cart.length === 0 ? "var(--text-muted)" : "#000",
+            isSubmitDisabled ? "var(--bg-hover)" : "var(--accent-green)",
+          color: isSubmitDisabled ? "var(--text-muted)" : "#000",
           border: "none",
           borderRadius: "var(--radius-sm)",
           padding: "12px",
@@ -176,13 +220,15 @@ function SaleSummary({
           fontSize: "12px",
           fontWeight: "700",
           letterSpacing: "0.08em",
-          cursor: cart.length === 0 ? "not-allowed" : "pointer",
+          cursor: isSubmitDisabled ? "not-allowed" : "pointer",
           transition: "all 0.15s",
         }}
       >
         {submitting
           ? "PROCESSING..."
-          : `CONFIRM SALE · ₹${grandTotal.toFixed(2)}`}
+          : grandTotal < 0 
+            ? `REFUND · ₹${Math.abs(grandTotal).toFixed(2)}` 
+            : `CONFIRM SALE · ₹${grandTotal.toFixed(2)}`}
       </button>
     </div>
   );

@@ -11,17 +11,25 @@ import Receipt from "../components/Billing/Receipt";
 export default function Billing() {
   const { isMobile } = useWindowSize();
   const [cart, setCart] = useState([]);
+  // ── Sale mode
+  const [saleMode, setSaleMode] = useState("B2C"); // 'B2C' | 'B2B'
+  // ── Customer fields
+  const [customerId, setCustomerId] = useState(null);
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const [isB2b, setIsB2b] = useState(false);
-  const [customerGstin, setCustomerGstin] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null); // full B2B CustomerParty object
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [prescriberName, setPrescriberName] = useState("");
+  const [prescriberRegNo, setPrescriberRegNo] = useState("");
+  // ── Payment
   const [discount, setDiscount] = useState("0");
   const [paymentMode, setPaymentMode] = useState("CASH");
+  const [splitPayments, setSplitPayments] = useState({ CASH: "", UPI: "", CREDIT: "" });
+  // ── UI state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState(null);
-  const [buyerAddress, setBuyerAddress] = useState("");
-  const [patientHistory, setPatientHistory] = useState(null); // null=unfetched, []=empty, [...]=has data
+  const [patientHistory, setPatientHistory] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [repeatLoading, setRepeatLoading] = useState(false);
   const phoneDebounceRef = useRef(null);
@@ -36,17 +44,37 @@ export default function Billing() {
   const cartRef = useRef([]);
   cartRef.current = cart;
 
-  const commitToCart = useCallback((medicine, batch, qty = 1) => {
+  // ── Schedule-level helpers ────────────────────────────────────────────────
+  const scheduleLevel = (s) => ({ GENERAL: 0, H: 1, H1: 2, X: 2, NARCOTIC: 2 }[s] ?? 0);
+  const maxScheduleLevel = cart.reduce((max, i) => Math.max(max, scheduleLevel(i.drug_schedule)), 0);
+  const needsPrescriber = maxScheduleLevel >= 1; // Schedule H and above
+  const needsFullLegal  = maxScheduleLevel >= 2; // Schedule H1/X/NARCOTIC
+
+  const commitToCart = useCallback((medicine, batch, qty = 1, customUom = "Tabs") => {
     const key = `${medicine.id}-${batch.id}`;
-    const safeQty = Math.min(Math.max(1, qty), batch.available_quantity);
+    const packQty = medicine.pack_qty || 1;
+    const maxAllowed = customUom === "Strips" ? Math.floor(batch.available_quantity / packQty) : batch.available_quantity;
+    const safeQty = qty > 0 ? Math.min(qty, maxAllowed) : qty;
+    
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
       if (existing) {
-        return prev.map((i) =>
-          i.key === key
-            ? { ...i, quantity: Math.min(i.quantity + safeQty, i.available) }
-            : i,
-        );
+        return prev.map((i) => {
+          if (i.key !== key) return i;
+          
+          let addQty = safeQty;
+          let newUom = i.uom;
+          let newQty = i.quantity;
+
+          if (i.uom !== customUom) {
+             newUom = "Tabs";
+             if (i.uom === "Strips") newQty = i.quantity * packQty;
+             if (customUom === "Strips") addQty = safeQty * packQty;
+          }
+          
+          const iMax = newUom === "Strips" ? Math.floor(i.available / packQty) : i.available;
+          return { ...i, uom: newUom, quantity: newQty + addQty < 0 ? (newQty + addQty) : Math.min(newQty + addQty, iMax) };
+        });
       }
       return [
         ...prev,
@@ -64,6 +92,8 @@ export default function Billing() {
           pack_qty: medicine.pack_qty,
           available: batch.available_quantity,
           quantity: safeQty,
+          free_quantity: 0,
+          uom: customUom,
           discount_percentage: "0.00",
         },
       ];
@@ -123,29 +153,43 @@ export default function Billing() {
           drug_schedule: batch.drug_schedule || "GENERAL",
           pack_qty: batch.pack_qty || 1,
         };
-        const qty = Math.min(
-          parseInt(snap.quantity) || 1,
-          batch.available_quantity,
-        );
+        const parsedQty = parseInt(snap.quantity) || 1;
+        const uomRef = snap.uom || "Tabs";
+        const packQty = batch.pack_qty || 1;
+        const maxAllowed = uomRef === "Strips" ? Math.floor(batch.available_quantity / packQty) : batch.available_quantity;
+        const qty = parsedQty > 0 ? Math.min(parsedQty, maxAllowed) : parsedQty;
         newItems.push({
           key: `${medicine.id}-${batch.id}`,
           medicine,
           batch,
           qty,
+          uom: uomRef,
         });
       });
 
       if (newItems.length > 0) {
         setCart((prev) => {
           let updated = [...prev];
-          newItems.forEach(({ key, medicine, batch, qty }) => {
+          newItems.forEach(({ key, medicine, batch, qty, uom }) => {
             const existing = updated.find((i) => i.key === key);
             if (existing) {
-              updated = updated.map((i) =>
-                i.key === key
-                  ? { ...i, quantity: Math.min(i.quantity + qty, i.available) }
-                  : i,
-              );
+              updated = updated.map((i) => {
+                if (i.key !== key) return i;
+                
+                let addQty = qty;
+                let newUom = i.uom;
+                let newQty = i.quantity;
+                const packQty = i.pack_qty || 1;
+
+                if (i.uom !== uom) {
+                   newUom = "Tabs";
+                   if (i.uom === "Strips") newQty = i.quantity * packQty;
+                   if (uom === "Strips") addQty = qty * packQty;
+                }
+                
+                const iMax = newUom === "Strips" ? Math.floor(i.available / packQty) : i.available;
+                return { ...i, uom: newUom, quantity: newQty + addQty < 0 ? (newQty + addQty) : Math.min(newQty + addQty, iMax) };
+              });
             } else {
               updated.push({
                 key,
@@ -161,6 +205,8 @@ export default function Billing() {
                 pack_qty: medicine.pack_qty,
                 available: batch.available_quantity,
                 quantity: qty,
+                free_quantity: 0,
+                uom: uom,
                 discount_percentage: "0.00",
               });
             }
@@ -180,11 +226,29 @@ export default function Billing() {
 
   const updateQty = (key, val) => {
     const n = parseInt(val);
-    if (isNaN(n) || n < 1) return;
+    if (isNaN(n) || n === 0) return;
     setCart((prev) =>
       prev.map((i) => {
         if (i.key !== key) return i;
-        return { ...i, quantity: Math.min(n, i.available) };
+        const maxAllowed = i.uom === "Strips" ? Math.floor(i.available / (i.pack_qty || 1)) : i.available;
+        return { ...i, quantity: n < 0 ? n : Math.min(n, maxAllowed) };
+      }),
+    );
+  };
+
+  const updateFreeQty = (key, val) => {
+    const n = parseInt(val) || 0;
+    setCart((prev) =>
+      prev.map((i) => (i.key === key ? { ...i, free_quantity: n >= 0 ? n : 0 } : i))
+    );
+  };
+
+  const updateUom = (key, val) => {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.key !== key) return i;
+        const maxAllowed = val === "Strips" ? Math.floor(i.available / (i.pack_qty || 1)) : i.available;
+        return { ...i, uom: val, quantity: i.quantity < 0 ? i.quantity : Math.min(i.quantity, maxAllowed) };
       }),
     );
   };
@@ -199,14 +263,14 @@ export default function Billing() {
     setCart((prev) => prev.filter((i) => i.key !== key));
 
   const cartTotal = cart.reduce((sum, item) => {
-    const perUnit = parseFloat(item.mrp) / (item.pack_qty || 1);
-    const lineGross = perUnit * item.quantity;
+    const rate = item.uom === 'Strips' ? parseFloat(item.mrp) : parseFloat(item.mrp) / (item.pack_qty || 1);
+    const lineGross = rate * item.quantity;
     const pct = parseFloat(item.discount_percentage || "0");
     const lineNet = lineGross * (1 - pct / 100);
     return sum + lineNet;
   }, 0);
 
-  const grandTotal = Math.max(0, cartTotal - parseFloat(discount || 0));
+  const grandTotal = cartTotal - parseFloat(discount || 0);
 
   const hasNarcotic = cart.some((i) => i.drug_schedule === "NARCOTIC");
 
@@ -214,13 +278,16 @@ export default function Billing() {
     clearTimeout(resetTimerRef.current);
     setResetPending(false);
     setCart([]);
+    setCustomerId(null);
     setCustomerPhone("");
     setCustomerName("");
-    setIsB2b(false);
-    setCustomerGstin("");
+    setSelectedCustomer(null);
+    setBuyerAddress("");
+    setPrescriberName("");
+    setPrescriberRegNo("");
     setDiscount("0");
     setPaymentMode("CASH");
-    setBuyerAddress("");
+    setSplitPayments({ CASH: "", UPI: "", CREDIT: "" });
     setPatientHistory(null);
     setHistoryOpen(false);
     setRepeatLoading(false);
@@ -228,47 +295,76 @@ export default function Billing() {
   }, []);
 
   const handleCheckout = async () => {
-    if (cart.length === 0) {
-      setError("Cart is empty.");
-      return;
-    }
-    if (hasNarcotic) {
-      if (!customerName.trim()) {
-        setError("Customer name is required for Narcotic drug sales.");
-        return;
-      }
-      if (!buyerAddress.trim()) {
-        setError("Buyer address is required for Narcotic drug sales.");
-        return;
-      }
-    }
+    if (cart.length === 0) { setError("Cart is empty."); return; }
+
     setError("");
+
+    // ── B2B validation ──────────────────────────────────────────────────────
+    if (saleMode === "B2B") {
+      if (!customerId) {
+        setError("B2B sale requires a registered customer. Search and select one, or register a new one.");
+        return;
+      }
+    }
+
+    // ── B2C validation ──────────────────────────────────────────────────────
+    if (saleMode === "B2C") {
+      if (!customerName.trim()) { setError("Patient name is required."); return; }
+      if (!customerPhone.trim()) { setError("Patient phone is required."); return; }
+      if (needsPrescriber && !prescriberName.trim()) {
+        setError("Prescribing doctor's name is legally required for Schedule H/H1/X/Narcotic drugs."); return;
+      }
+      if (needsFullLegal) {
+        if (!buyerAddress.trim()) { setError("Patient address is legally required for Schedule H1/X/Narcotic drugs."); return; }
+        if (!prescriberRegNo.trim()) { setError("Doctor/Clinic registration number is legally required for Schedule H1/X/Narcotic drugs."); return; }
+      }
+      if (paymentMode === "CREDIT" && !customerId) {
+        setError("Credit sale requires a registered patient profile for ledger tracking. Please use the 'REGISTER +' button."); return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const payload = {
+        customer_id:    customerId || undefined,
         customer_phone: customerPhone || undefined,
-        customer_name: customerName || undefined,
-        buyer_address: buyerAddress || undefined,
+        customer_name:  customerName || undefined,
+        buyer_address:  buyerAddress || undefined,
+        prescriber_name:   prescriberName || undefined,
+        prescriber_reg_no: prescriberRegNo || undefined,
         discount: parseFloat(discount || 0).toFixed(2),
         payment_mode: paymentMode,
         items: cart.map((i) => ({
           medicine: i.medicine_id,
           quantity: i.quantity,
-          discount_percentage: parseFloat(i.discount_percentage || "0").toFixed(
-            2,
-          ),
+          free_quantity: i.free_quantity || 0,
+          uom: i.uom,
+          discount_percentage: parseFloat(i.discount_percentage || "0").toFixed(2),
         })),
       };
+      if (paymentMode === "SPLIT") {
+        const cleanSplit = {};
+        for (const [k, v] of Object.entries(splitPayments)) {
+          const num = parseFloat(v);
+          if (!isNaN(num) && num > 0) cleanSplit[k] = num.toFixed(2);
+        }
+        payload.split_payments = cleanSplit;
+      }
+
       const res = await checkout(payload);
       setReceipt(res.data);
+      // Reset after successful checkout
       setCart([]);
+      setCustomerId(null);
       setCustomerPhone("");
       setCustomerName("");
-      setIsB2b(false);
-      setCustomerGstin("");
+      setSelectedCustomer(null);
       setBuyerAddress("");
+      setPrescriberName("");
+      setPrescriberRegNo("");
       setDiscount("0");
       setPaymentMode("CASH");
+      setSplitPayments({ CASH: "", UPI: "", CREDIT: "" });
     } catch (err) {
       const data = err.response?.data;
       if (typeof data === "object") {
@@ -421,6 +517,8 @@ export default function Billing() {
         <Cart
           cart={cart}
           updateQty={updateQty}
+          updateFreeQty={updateFreeQty}
+          updateUom={updateUom}
           updateDiscount={updateDiscount}
           removeItem={removeItem}
           isMobile={isMobile}
@@ -438,17 +536,25 @@ export default function Billing() {
         }}
       >
         <CustomerForm
+          saleMode={saleMode}
+          setSaleMode={setSaleMode}
+          customerId={customerId}
+          setCustomerId={setCustomerId}
           customerPhone={customerPhone}
           setCustomerPhone={setCustomerPhone}
           customerName={customerName}
           setCustomerName={setCustomerName}
-          isB2b={isB2b}
-          setIsB2b={setIsB2b}
-          customerGstin={customerGstin}
-          setCustomerGstin={setCustomerGstin}
+          selectedCustomer={selectedCustomer}
+          setSelectedCustomer={setSelectedCustomer}
           buyerAddress={buyerAddress}
           setBuyerAddress={setBuyerAddress}
-          hasNarcotic={hasNarcotic}
+          prescriberName={prescriberName}
+          setPrescriberName={setPrescriberName}
+          prescriberRegNo={prescriberRegNo}
+          setPrescriberRegNo={setPrescriberRegNo}
+          needsPrescriber={needsPrescriber}
+          needsFullLegal={needsFullLegal}
+          paymentMode={paymentMode}
           patientHistory={patientHistory}
           historyOpen={historyOpen}
           setHistoryOpen={setHistoryOpen}
@@ -465,6 +571,8 @@ export default function Billing() {
           paymentMode={paymentMode}
           setPaymentMode={setPaymentMode}
           paymentModeRefs={paymentModeRefs}
+          splitPayments={splitPayments}
+          setSplitPayments={setSplitPayments}
           error={error}
           submitting={submitting}
           cart={cart}

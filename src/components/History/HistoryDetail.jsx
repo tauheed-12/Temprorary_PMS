@@ -165,7 +165,7 @@ export default function HistoryDetail({
                 ₹{parseFloat(item.line_total).toFixed(2)}
               </div>
               <button
-                onClick={() => onReturn(item)}
+                onClick={() => onReturn(selectedBill, item)}
                 style={{
                   fontSize: "9px",
                   color: "var(--accent-amber)",

@@ -9,6 +9,8 @@ import Warehouse from './pages/Warehouse'
 import Suppliers from './pages/Suppliers'
 import History from './pages/History'
 import Staff from './pages/Staff'
+import Ledger from './pages/Ledger'
+import GSTReport from './pages/GSTReport'
 import Layout from './components/Layout'
 
 const PrivateRoute = ({ children, ownerOnly = false }) => {
@@ -35,8 +37,10 @@ export default function App() {
         <Route path="inventory" element={<PrivateRoute ownerOnly><Inventory /></PrivateRoute>} />
         <Route path="warehouse" element={<PrivateRoute ownerOnly><Warehouse /></PrivateRoute>} />
         <Route path="suppliers" element={<PrivateRoute ownerOnly><Suppliers /></PrivateRoute>} />
-        <Route path="history" element={<PrivateRoute><History /></PrivateRoute>} />
-        <Route path="staff" element={<PrivateRoute ownerOnly><Staff /></PrivateRoute>} />
+        <Route path="ledger"     element={<PrivateRoute ownerOnly><Ledger /></PrivateRoute>} />
+        <Route path="history"    element={<PrivateRoute><History /></PrivateRoute>} />
+        <Route path="staff"      element={<PrivateRoute ownerOnly><Staff /></PrivateRoute>} />
+        <Route path="gst-report" element={<PrivateRoute ownerOnly><GSTReport /></PrivateRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

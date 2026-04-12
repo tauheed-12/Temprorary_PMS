@@ -2,7 +2,7 @@ import { getDaysLeft } from "../../utils";
 import { getExpiryColor } from "../../utils";
 import useWindowSize from "../../hooks/useWindowSize";
 
-export default function StockCard({ batch }) {
+export default function StockCard({ batch, onReturn }) {
   const { isMobile } = useWindowSize();
   const days = getDaysLeft(batch.expiry_date);
   const expiryColor = getExpiryColor(batch.expiry_date);
@@ -15,7 +15,7 @@ export default function StockCard({ batch }) {
         borderRadius: "var(--radius-md)",
         padding: "10px 12px",
         display: isMobile ? "flex" : "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr",
+        gridTemplateColumns: "3fr 1fr 1fr 1fr 1fr 1fr 1fr",
         flexDirection: isMobile ? "column" : undefined,
         gap: "8px",
         alignItems: "center",
@@ -144,6 +144,25 @@ export default function StockCard({ batch }) {
           </span>
         )}
       </div>
+      {onReturn && (
+        <button
+          onClick={() => onReturn(batch)}
+          style={{
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--accent-red)",
+            color: "var(--accent-red)",
+            padding: "4px 8px",
+            borderRadius: "3px",
+            fontSize: "10px",
+            fontFamily: "var(--font-mono)",
+            fontWeight: 600,
+            cursor: "pointer",
+            marginLeft: isMobile ? "0" : "auto"
+          }}
+        >
+          RETURN
+        </button>
+      )}
     </div>
   );
 }

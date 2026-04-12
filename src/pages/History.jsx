@@ -72,20 +72,21 @@ export default function History() {
     setReturning(true);
 
     try {
+      // refund_amount is computed server-side from the original line_total —
+      // the backend knows the correct tax-inclusive rate, we just send qty + reason.
       await processReturn({
         sales_bill: returnModal.bill.id,
         sales_item: returnModal.item.id,
         return_quantity: parseInt(returnQty),
-        refund_amount: (
-          parseFloat(returnModal.item.sale_rate_per_unit) * parseInt(returnQty)
-        ).toFixed(2),
         reason: returnReason,
       });
 
       setReturnSuccess(`Return of ${returnQty} tablets processed.`);
       setReturnModal(null);
       setReturnQty("");
+      // Refresh both the detail view and the bills list so payment_status is current
       if (selectedBill) openDetail(selectedBill);
+      fetchBills();
       setTimeout(() => setReturnSuccess(""), 4000);
     } catch (err) {
       const data = err.response?.data;

@@ -15,3 +15,8 @@ export const getUnassignedBatches = () => api.get('/api/inventory/batches/unassi
 export const assignBatch = (batchId, data) => api.post(`/api/inventory/batches/${batchId}/assign/`, data)
 export const getAdjustments = () => api.get('/api/inventory/adjustments/')
 export const deactivateMedicine = (id) => api.patch(`/api/inventory/medicines/${id}/`, { is_active: false })
+export const syncStock = (data) => api.post('/api/inventory/sync/', data)
+export const submitPurchaseReturn = (data) => api.post('/api/inventory/return/', data)
+export const getSuppliersWithBalance = () => api.get('/api/inventory/suppliers/')
+export const submitSupplierPayment = (supplierId, data) => api.post(`/api/inventory/suppliers/${supplierId}/payment/`, data)
+export const getSupplierLedger = (supplierId, params) => api.get(`/api/inventory/suppliers/${supplierId}/ledger/`, { params })

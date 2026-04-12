@@ -200,24 +200,50 @@ function Receipt({ receipt, onNew }) {
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "10px",
-                  color: "var(--text-muted)",
-                }}
-              >
-                Bill ID
-              </div>
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "11px",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                {receipt.id?.slice(0, 8).toUpperCase()}
-              </div>
+              {receipt.invoice_number ? (
+                <>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "10px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Invoice No.
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "11px",
+                      fontWeight: "600",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    {receipt.invoice_number}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "10px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Bill ID
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "11px",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {receipt.id?.slice(0, 8).toUpperCase()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -284,11 +310,11 @@ function Receipt({ receipt, onNew }) {
                       fontFamily: "var(--font-mono)",
                     }}
                   >
-                    {item.quantity} tabs
+                    {item.quantity} {item.uom === 'Strips' ? 'Strips' : 'tabs'}
                     {parseInt(item.free_quantity) > 0
                       ? ` + ${item.free_quantity} free`
                       : ""}{" "}
-                    · ₹{parseFloat(item.sale_rate_per_unit).toFixed(2)}/tab
+                    · ₹{parseFloat(item.sale_rate_per_unit).toFixed(2)}/{item.uom === 'Strips' ? 'strip' : 'tab'}
                     {parseFloat(item.discount_percentage) > 0 &&
                       ` · Disc ${item.discount_percentage}%`}
                     {" · "}GST {item.gst_percentage}%
@@ -383,9 +409,9 @@ function Receipt({ receipt, onNew }) {
                   color: "var(--accent-amber)",
                 }}
               >
-                <span>Discount</span>
+                <span>Disc. applied <span style={{ fontSize: "9px", opacity: 0.7 }}>(incl. in subtotal)</span></span>
                 <span style={{ fontFamily: "var(--font-mono)" }}>
-                  −₹{parseFloat(receipt.discount).toFixed(2)}
+                  ₹{parseFloat(receipt.discount).toFixed(2)}
                 </span>
               </div>
             )}
@@ -410,7 +436,15 @@ function Receipt({ receipt, onNew }) {
                 textAlign: "right",
               }}
             >
-              {receipt.payment_mode}
+              {receipt.payment_mode === "SPLIT" && receipt.split_payments
+                ? Object.entries(receipt.split_payments)
+                    .filter(([, v]) => parseFloat(v) > 0)
+                    .map(([mode, amt]) => (
+                      <div key={mode}>
+                        Paid via {mode}: ₹{parseFloat(amt).toFixed(2)}
+                      </div>
+                    ))
+                : <div>Paid via {receipt.payment_mode}</div>}
             </div>
           </div>
         </div>
@@ -431,7 +465,10 @@ function Receipt({ receipt, onNew }) {
         <hr style={hrStyle} />
 
         {/* Bill meta */}
-        <div>Bill: {receipt.id?.slice(0, 8).toUpperCase()}</div>
+        {receipt.invoice_number
+          ? <div>Invoice: {receipt.invoice_number}</div>
+          : <div>Bill: {receipt.id?.slice(0, 8).toUpperCase()}</div>
+        }
         <div>
           Date: {dateStr} {timeStr}
         </div>
@@ -480,7 +517,7 @@ function Receipt({ receipt, onNew }) {
                 : ""}
             </div>
             <div style={{ fontSize: "9px", paddingLeft: "8px" }}>
-              @₹{parseFloat(item.sale_rate_per_unit).toFixed(2)}/tab
+              @₹{parseFloat(item.sale_rate_per_unit).toFixed(2)}/{item.uom === 'Strips' ? 'strip' : 'tab'}
               {parseFloat(item.discount_percentage) > 0
                 ? `  Disc: ${item.discount_percentage}%`
                 : ""}
@@ -517,8 +554,8 @@ function Receipt({ receipt, onNew }) {
         )}
         {parseFloat(receipt.discount) > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>Discount</span>
-            <span>-₹{parseFloat(receipt.discount).toFixed(2)}</span>
+            <span>Disc. applied (in subtotal)</span>
+            <span>₹{parseFloat(receipt.discount).toFixed(2)}</span>
           </div>
         )}
         <div
@@ -533,10 +570,20 @@ function Receipt({ receipt, onNew }) {
           <span>GRAND TOTAL</span>
           <span>₹{parseFloat(receipt.grand_total).toFixed(2)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>Payment</span>
-          <span>{receipt.payment_mode}</span>
-        </div>
+        {receipt.payment_mode === "SPLIT" && receipt.split_payments
+          ? Object.entries(receipt.split_payments)
+              .filter(([, v]) => parseFloat(v) > 0)
+              .map(([mode, amt]) => (
+                <div key={mode} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Paid ({mode})</span>
+                  <span>₹{parseFloat(amt).toFixed(2)}</span>
+                </div>
+              ))
+          : <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Payment</span>
+              <span>{receipt.payment_mode}</span>
+            </div>
+        }
         <hr style={hrStyle} />
 
         {/* Footer */}

@@ -19,6 +19,7 @@ import useWindowSize from "../hooks/useWindowSize";
 import { useAuth } from "../context/AuthContext";
 import MedicineForm from "../components/Inventory/MedicineForm";
 import PurchaseBillForm from "../components/Inventory/PurchaseBillForm";
+import PurchaseReturnForm from "../components/Inventory/PurchaseReturnForm";
 import StockList from "../components/Inventory/StockList";
 import MedicineList from "../components/Inventory/MedicineList";
 import PurchaseBillList from "../components/Inventory/PurchaseBillList";
@@ -41,6 +42,7 @@ export default function Inventory() {
   const [success, setSuccess] = useState("");
   const [stockSearch, setStockSearch] = useState("");
   const [stockFilter, setStockFilter] = useState("all");
+  const [returnBatch, setReturnBatch] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     open: false,
     message: "",
@@ -285,7 +287,22 @@ export default function Inventory() {
             search={stockSearch}
             filter={stockFilter}
             loading={loading}
+            onReturn={isOwner ? setReturnBatch : undefined}
           />
+          {returnBatch && (
+            <PurchaseReturnForm
+              batch={returnBatch}
+              suppliers={suppliers}
+              onSuccess={async () => {
+                const stockRes = await getStock();
+                dispatch(setStock(stockRes.data.results || []));
+                setSuccess(`Return submitted for ${returnBatch.medicine_name}`);
+                setReturnBatch(null);
+                setTimeout(() => setSuccess(""), 3000);
+              }}
+              onCancel={() => setReturnBatch(null)}
+            />
+          )}
         </>
       )}
 

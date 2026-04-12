@@ -7,7 +7,7 @@ export default function ReturnModal({
   returnError,
   returning,
   onClose,
-  onConfirm,
+  onReturn,
 }) {
   return (
     <div
@@ -181,7 +181,7 @@ export default function ReturnModal({
             CANCEL
           </button>
           <button
-            onClick={onConfirm}
+            onClick={onReturn}
             disabled={returning}
             style={{
               flex: 1,

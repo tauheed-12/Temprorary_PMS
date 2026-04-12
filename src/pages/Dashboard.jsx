@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setStock, setSalesBills } from "../store/slices/inventorySlice";
 import { useAuth } from "../context/AuthContext";
@@ -27,16 +27,21 @@ export default function Dashboard() {
   const dispatch = useAppDispatch();
   const stock = useAppSelector((state) => state.inventory.stock);
   const bills = useAppSelector((state) => state.inventory.salesBills);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Fetch data if not already loaded
     if (stock.length === 0 || bills.length === 0) {
+      setLoading(true);
       Promise.all([getStock(), getSalesHistory()])
         .then(([stockRes, billsRes]) => {
           dispatch(setStock(stockRes.data.results || []));
           dispatch(setSalesBills(billsRes.data.results || []));
         })
-        .catch(console.error);
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
   }, [stock.length, bills.length, dispatch]);
 
@@ -87,8 +92,6 @@ export default function Dashboard() {
     return Object.values(map).slice(-7).reverse();
   }, [bills]);
 
-  const isLoading = stock.length === 0 && bills.length === 0;
-
   // ── Expiry urgency ──
   // Note: getExpiryColor is not used in this component, expiry colors are handled in ExpiryAlert component
 
@@ -98,9 +101,9 @@ export default function Dashboard() {
       ? "1fr 1fr"
       : "repeat(4, 1fr)";
   const mainGrid = isMobile || isTablet ? "1fr" : "3fr 2fr";
-  const bottomGrid = isMobile || isTablet ? "1fr" : "1fr 1fr";
+  const bottomGrid = isMobile || isTablet ? "1fr" : "1fr 1fr 1fr";
 
-  if (isLoading)
+  if (loading)
     return (
       <div
         style={{
@@ -364,6 +367,50 @@ export default function Dashboard() {
                 ✓ ALL STOCK HEALTHY
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Return alerts placeholder */}
+        <div style={card}>
+          <div style={cardHeader}>
+            <span style={cardTitle}>RETURN ALERTS</span>
+            <span
+              style={{
+                fontSize: "10px",
+                color: "var(--accent-red)",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              UPCOMING
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              marginTop: "1rem",
+            }}
+          >
+            {/* 
+              TODO: Hook this up to `ReturnAlert` backend model.
+              Will use a Celery task to auto-generate alerts whenever a batch gets within policy days of expiring.
+            */}
+            <div
+              style={{
+                textAlign: "center",
+                color: "var(--text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "12px",
+                padding: "1rem",
+                border: "1px dashed var(--border)",
+                borderRadius: "var(--radius-sm)"
+              }}
+            >
+              Supplier Return Automation
+              <br/>
+              <span style={{ fontSize: "10px", color: "var(--text-secondary)", marginTop: "4px", display: "inline-block" }}>Celery Task Pending Implementation</span>
+            </div>
           </div>
         </div>
 

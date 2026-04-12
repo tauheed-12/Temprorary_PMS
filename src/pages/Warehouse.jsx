@@ -45,6 +45,7 @@ export default function Warehouse() {
     shelf_count: 5,
     label: "",
   });
+  const [auditMode, setAuditMode] = useState(false);
 
   const fetchAll = useCallback(() => {
     setLoading(true);
@@ -205,6 +206,25 @@ export default function Warehouse() {
             {showBlockForm ? "CANCEL" : "+ ADD BLOCK"}
           </button>
         )}
+        {activeTab === "shelves" && (
+          <button
+            onClick={() => setAuditMode(!auditMode)}
+            style={{
+              background: auditMode ? "var(--accent-red)" : "transparent",
+              color: auditMode ? "#000" : "var(--text-secondary)",
+              border: auditMode ? "none" : "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 16px",
+              fontFamily: "var(--font-mono)",
+              fontSize: "11px",
+              fontWeight: "700",
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+            }}
+          >
+            {auditMode ? "EXIT AUDIT MODE" : "ENTER AUDIT MODE"}
+          </button>
+        )}
       </div>
 
       <div
@@ -309,6 +329,8 @@ export default function Warehouse() {
           selectedBlock={selectedBlock}
           shelvesLoading={shelvesLoading}
           shelves={shelves}
+          auditMode={auditMode}
+          onSyncComplete={() => fetchShelves(selectedBlock.block_letter)}
         />
       )}
     </div>

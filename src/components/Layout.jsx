@@ -5,13 +5,15 @@ import { logout as logoutApi } from '../api/auth'
 import useWindowSize from '../hooks/useWindowSize'
 
 const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard', icon: '▣', ownerOnly: true },
-  { path: '/billing',   label: 'Billing',   icon: '⊞', ownerOnly: false },
-  { path: '/inventory', label: 'Inventory', icon: '⊟', ownerOnly: true },
-  { path: '/warehouse', label: 'Warehouse', icon: '▦', ownerOnly: true },
-  { path: '/suppliers', label: 'Suppliers', icon: '⊕', ownerOnly: true },
-  { path: '/history',   label: 'History',   icon: '≡', ownerOnly: false },
-  { path: '/staff',     label: 'Staff',     icon: '⊗', ownerOnly: true },
+  { path: '/dashboard',  label: 'Dashboard',  icon: '▣', ownerOnly: true },
+  { path: '/billing',    label: 'Billing',    icon: '⊞', ownerOnly: false },
+  { path: '/inventory',  label: 'Inventory',  icon: '⊟', ownerOnly: true },
+  { path: '/warehouse',  label: 'Warehouse',  icon: '▦', ownerOnly: true },
+  { path: '/suppliers',  label: 'Suppliers',  icon: '⊕', ownerOnly: true },
+  { path: '/ledger',     label: 'Ledger',     icon: '₹', ownerOnly: true },
+  { path: '/history',    label: 'History',    icon: '≡', ownerOnly: false },
+  { path: '/gst-report', label: 'GST Report', icon: '§', ownerOnly: true },
+  { path: '/staff',      label: 'Staff',      icon: '⊗', ownerOnly: true },
 ]
 
 export default function Layout() {

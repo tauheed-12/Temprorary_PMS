@@ -2,7 +2,7 @@ import StockCard from "./StockCard";
 import EmptyState from "./EmptyState";
 import useWindowSize from "../../hooks/useWindowSize";
 
-export default function StockList({ stock, search, filter, loading }) {
+export default function StockList({ stock, search, filter, loading, onReturn }) {
   const { isMobile } = useWindowSize();
 
   const filteredStock = stock.filter((batch) => {
@@ -65,7 +65,7 @@ export default function StockList({ stock, search, filter, loading }) {
         </div>
       )}
       {filteredStock.map((batch) => (
-        <StockCard key={batch.id} batch={batch} />
+        <StockCard key={batch.id} batch={batch} onReturn={onReturn} />
       ))}
     </div>
   );
